@@ -1,0 +1,424 @@
+{
+  "entities": {
+    "Admin": {
+      "title": "Admin",
+      "description": "Registered teacher or administrator allowed to manage TKA SD exam packets and questions.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "roleTitle": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "schoolName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "nip": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "name", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Non-sensitive student or teacher display profile for class identification.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "className": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "schoolName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "className", "createdAt", "updatedAt"]
+    },
+    "ExamPacket": {
+      "title": "ExamPacket",
+      "description": "A TKA SD exam or practice packet curated by a teacher.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "subject": {
+          "type": "string",
+          "enum": ["Matematika", "Bahasa Indonesia", "IPAS", "Campuran TKA"]
+        },
+        "gradeLevel": {
+          "type": "string",
+          "enum": ["Kelas 4", "Kelas 5", "Kelas 6"]
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "durationMinutes": {
+          "type": "integer"
+        },
+        "questionCount": {
+          "type": "integer"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "published"]
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "title",
+        "subject",
+        "gradeLevel",
+        "description",
+        "durationMinutes",
+        "questionCount",
+        "status",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "A TKA SD question belonging to an exam packet supporting Pilihan Ganda (pg), PG Kompleks Benar/Salah (true_false), PG Kompleks MCMA (mcma), and optional story/illustration stimulus.",
+      "type": "object",
+      "properties": {
+        "packetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "packetStatus": {
+          "type": "string",
+          "enum": ["draft", "published"]
+        },
+        "order": {
+          "type": "integer"
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["Mudah", "Sedang", "HOTS"]
+        },
+        "questionType": {
+          "type": "string",
+          "enum": ["pg", "true_false", "mcma"]
+        },
+        "stimulus": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 2000
+        },
+        "options": {
+          "type": "array"
+        },
+        "correctIndex": {
+          "type": "integer"
+        },
+        "correctIndices": {
+          "type": "array"
+        },
+        "correctBooleans": {
+          "type": "array"
+        },
+        "explanation": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 3000
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "packetId",
+        "packetStatus",
+        "order",
+        "subject",
+        "difficulty",
+        "prompt",
+        "options",
+        "correctIndex",
+        "explanation",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Attempt": {
+      "title": "Attempt",
+      "description": "A completed student CAT exam or practice attempt with auto-graded score and answer map.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "className": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "packetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "packetTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["timed", "practice"]
+        },
+        "score": {
+          "type": "number"
+        },
+        "correctCount": {
+          "type": "integer"
+        },
+        "totalQuestions": {
+          "type": "integer"
+        },
+        "durationSeconds": {
+          "type": "integer"
+        },
+        "answers": {
+          "type": "object"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "studentName",
+        "className",
+        "packetId",
+        "packetTitle",
+        "subject",
+        "mode",
+        "score",
+        "correctCount",
+        "totalQuestions",
+        "durationSeconds",
+        "answers",
+        "createdAt"
+      ]
+    },
+    "LiveSession": {
+      "title": "LiveSession",
+      "description": "Real-time exam progress and heartbeat for a student currently taking an exam or practice session, monitored by admins.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "studentName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "className": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "packetId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "packetTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["timed", "practice"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["working", "finished", "exited"]
+        },
+        "currentQuestionNumber": {
+          "type": "integer"
+        },
+        "answeredCount": {
+          "type": "integer"
+        },
+        "flaggedCount": {
+          "type": "integer"
+        },
+        "totalQuestions": {
+          "type": "integer"
+        },
+        "secondsLeft": {
+          "type": "integer"
+        },
+        "elapsedSeconds": {
+          "type": "integer"
+        },
+        "examStartedAtMs": {
+          "type": "integer"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "userId",
+        "studentName",
+        "className",
+        "packetId",
+        "packetTitle",
+        "subject",
+        "mode",
+        "status",
+        "currentQuestionNumber",
+        "answeredCount",
+        "flaggedCount",
+        "totalQuestions",
+        "secondsLeft",
+        "elapsedSeconds",
+        "examStartedAtMs",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Trusted teacher/admin accounts and editable admin profile details."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Student and teacher display profiles without sensitive PII."
+    },
+    "/examPackets/{packetId}": {
+      "schema": { "$ref": "#/entities/ExamPacket" },
+      "description": "TKA SD exam packets managed by teachers."
+    },
+    "/questions/{questionId}": {
+      "schema": { "$ref": "#/entities/Question" },
+      "description": "Multiple-choice questions linked to exam packets."
+    },
+    "/attempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/Attempt" },
+      "description": "Student exam attempt records and score history."
+    },
+    "/liveSessions/{userId}": {
+      "schema": { "$ref": "#/entities/LiveSession" },
+      "description": "Real-time exam session progress for live admin monitoring."
+    }
+  }
+}

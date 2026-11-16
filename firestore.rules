@@ -1,0 +1,329 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'sukronmakmun91@guru.sd.belajar.id' ||
+        request.auth.token.email == 'kkgpaitoroh@gmail.com'
+      );
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidAdmin(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'name', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'name', 'roleTitle', 'schoolName', 'nip', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == userId
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 100
+        && (!data.keys().hasAny(['roleTitle']) || (data.roleTitle is string && data.roleTitle.size() <= 80))
+        && (!data.keys().hasAny(['schoolName']) || (data.schoolName is string && data.schoolName.size() <= 100))
+        && (!data.keys().hasAny(['nip']) || (data.nip is string && data.nip.size() <= 40))
+        && data.createdAt is timestamp
+        && (!data.keys().hasAny(['updatedAt']) || data.updatedAt is timestamp);
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'className', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'className', 'schoolName', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.uid == userId
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.className is string && data.className.size() >= 0 && data.className.size() <= 30
+        && (!data.keys().hasAny(['schoolName']) || (data.schoolName is string && data.schoolName.size() <= 100))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidExamPacket(data) {
+      return data.keys().hasAll([
+          'title', 'subject', 'gradeLevel', 'description',
+          'durationMinutes', 'questionCount', 'status',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'title', 'subject', 'gradeLevel', 'description',
+          'durationMinutes', 'questionCount', 'status',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 160
+        && data.subject in ['Matematika', 'Bahasa Indonesia', 'IPAS', 'Campuran TKA']
+        && data.gradeLevel in ['Kelas 4', 'Kelas 5', 'Kelas 6']
+        && data.description is string && data.description.size() <= 500
+        && data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 180
+        && data.questionCount is int && data.questionCount >= 0 && data.questionCount <= 200
+        && data.status in ['draft', 'published']
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidQuestion(data) {
+      return data.keys().hasAll([
+          'packetId', 'packetStatus', 'order', 'subject', 'difficulty',
+          'prompt', 'options', 'correctIndex', 'explanation',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'packetId', 'packetStatus', 'order', 'subject', 'difficulty',
+          'questionType', 'stimulus',
+          'prompt', 'options', 'correctIndex', 'correctIndices', 'correctBooleans',
+          'explanation', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.packetId)
+        && data.packetStatus in ['draft', 'published']
+        && data.order is int && data.order >= 0 && data.order <= 500
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 60
+        && data.difficulty in ['Mudah', 'Sedang', 'HOTS']
+        && (!data.keys().hasAny(['questionType']) || data.questionType in ['pg', 'true_false', 'mcma'])
+        && (!data.keys().hasAny(['stimulus']) || (data.stimulus is string && data.stimulus.size() <= 4000))
+        && data.prompt is string && data.prompt.size() >= 3 && data.prompt.size() <= 2000
+        && data.options is list && data.options.size() >= 2 && data.options.size() <= 6
+        && data.options[0] is string && data.options[0].size() <= 500
+        && data.options[1] is string && data.options[1].size() <= 500
+        && (data.options.size() < 3 || (data.options[2] is string && data.options[2].size() <= 500))
+        && (data.options.size() < 4 || (data.options[3] is string && data.options[3].size() <= 500))
+        && (data.options.size() < 5 || (data.options[4] is string && data.options[4].size() <= 500))
+        && (data.options.size() < 6 || (data.options[5] is string && data.options[5].size() <= 500))
+        && data.correctIndex is int && data.correctIndex >= 0 && data.correctIndex <= 5
+        && (!data.keys().hasAny(['correctIndices']) || (
+          data.correctIndices is list
+          && data.correctIndices.size() >= 1
+          && data.correctIndices.size() <= 6
+          && data.correctIndices[0] is int
+        ))
+        && (!data.keys().hasAny(['correctBooleans']) || (
+          data.correctBooleans is list
+          && data.correctBooleans.size() >= 2
+          && data.correctBooleans.size() <= 6
+          && data.correctBooleans[0] is bool
+          && data.correctBooleans[1] is bool
+        ))
+        && data.explanation is string && data.explanation.size() >= 3 && data.explanation.size() <= 3000
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAttempt(data) {
+      return data.keys().hasAll([
+          'userId', 'studentName', 'className', 'packetId', 'packetTitle',
+          'subject', 'mode', 'score', 'correctCount', 'totalQuestions',
+          'durationSeconds', 'answers', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'studentName', 'className', 'packetId', 'packetTitle',
+          'subject', 'mode', 'score', 'correctCount', 'totalQuestions',
+          'durationSeconds', 'answers', 'createdAt'
+        ])
+        && isValidId(data.userId)
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 100
+        && data.className is string && data.className.size() <= 30
+        && isValidId(data.packetId)
+        && data.packetTitle is string && data.packetTitle.size() >= 1 && data.packetTitle.size() <= 160
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 60
+        && data.mode in ['timed', 'practice']
+        && (data.score is int || data.score is float) && data.score >= 0 && data.score <= 100
+        && data.correctCount is int && data.correctCount >= 0 && data.correctCount <= 200
+        && data.totalQuestions is int && data.totalQuestions >= 1 && data.totalQuestions <= 200
+        && data.durationSeconds is int && data.durationSeconds >= 0 && data.durationSeconds <= 36000
+        && data.answers is map && data.answers.size() <= 200
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLiveSession(data, sessionId) {
+      return data.keys().hasAll([
+          'userId', 'studentName', 'className', 'packetId', 'packetTitle',
+          'subject', 'mode', 'status', 'currentQuestionNumber',
+          'answeredCount', 'flaggedCount', 'totalQuestions',
+          'secondsLeft', 'elapsedSeconds', 'examStartedAtMs',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId', 'studentName', 'className', 'packetId', 'packetTitle',
+          'subject', 'mode', 'status', 'currentQuestionNumber',
+          'answeredCount', 'flaggedCount', 'totalQuestions',
+          'secondsLeft', 'elapsedSeconds', 'examStartedAtMs',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && data.userId == sessionId
+        && data.studentName is string && data.studentName.size() >= 1 && data.studentName.size() <= 100
+        && data.className is string && data.className.size() <= 30
+        && isValidId(data.packetId)
+        && data.packetTitle is string && data.packetTitle.size() >= 1 && data.packetTitle.size() <= 160
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 60
+        && data.mode in ['timed', 'practice']
+        && data.status in ['working', 'finished', 'exited']
+        && data.currentQuestionNumber is int && data.currentQuestionNumber >= 1 && data.currentQuestionNumber <= 500
+        && data.answeredCount is int && data.answeredCount >= 0 && data.answeredCount <= 500
+        && data.flaggedCount is int && data.flaggedCount >= 0 && data.flaggedCount <= 500
+        && data.totalQuestions is int && data.totalQuestions >= 1 && data.totalQuestions <= 500
+        && data.secondsLeft is int && data.secondsLeft >= 0 && data.secondsLeft <= 36000
+        && data.elapsedSeconds is int && data.elapsedSeconds >= 0 && data.elapsedSeconds <= 36000
+        && data.examStartedAtMs is int && data.examStartedAtMs >= 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isAdmin() || (isVerifiedUser() && request.auth.uid == userId));
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isValidAdmin(incoming(), userId)
+        && incoming().createdAt == request.time
+        && (!incoming().keys().hasAny(['updatedAt']) || incoming().updatedAt == request.time)
+        && (isAdmin() || (isBootstrappedAdmin() && request.auth.uid == userId));
+      allow update: if isValidId(userId)
+        && isValidAdmin(incoming(), userId)
+        && isAdmin()
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'roleTitle', 'schoolName', 'nip', 'updatedAt'])) ||
+          (incoming().email == existing().email && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'roleTitle', 'schoolName', 'nip', 'updatedAt']))
+        );
+      allow delete: if isValidId(userId) && isAdmin() && userId != request.auth.uid;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isAdmin() || (isSignedIn() && request.auth.uid == userId));
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isVerifiedUser()
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isValidUserProfile(incoming(), userId)
+        && isVerifiedUser()
+        && (request.auth.uid == userId || isAdmin())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'className', 'schoolName', 'updatedAt']);
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    match /examPackets/{packetId} {
+      allow get: if isValidId(packetId) && (isAdmin() || (isSignedIn() && existing().status == 'published'));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.status == 'published');
+      allow create: if isValidId(packetId)
+        && isValidExamPacket(incoming())
+        && isAdmin()
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(packetId)
+        && isValidExamPacket(incoming())
+        && isAdmin()
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'subject', 'gradeLevel', 'description',
+          'durationMinutes', 'questionCount', 'status', 'updatedAt'
+        ]);
+      allow delete: if isValidId(packetId) && isAdmin();
+    }
+
+    match /questions/{questionId} {
+      allow get: if isValidId(questionId) && (isAdmin() || (isSignedIn() && existing().packetStatus == 'published'));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.packetStatus == 'published');
+      allow create: if isValidId(questionId)
+        && isValidQuestion(incoming())
+        && isAdmin()
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (
+          exists(/databases/$(database)/documents/examPackets/$(incoming().packetId)) ||
+          existsAfter(/databases/$(database)/documents/examPackets/$(incoming().packetId))
+        );
+      allow update: if isValidId(questionId)
+        && isValidQuestion(incoming())
+        && isAdmin()
+        && incoming().packetId == existing().packetId
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'packetStatus', 'order', 'subject', 'difficulty',
+          'questionType', 'stimulus',
+          'prompt', 'options', 'correctIndex', 'correctIndices', 'correctBooleans',
+          'explanation', 'updatedAt'
+        ]);
+      allow delete: if isValidId(questionId) && isAdmin();
+    }
+
+    match /attempts/{attemptId} {
+      allow get: if isValidId(attemptId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(attemptId)
+        && isValidAttempt(incoming())
+        && isVerifiedUser()
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isValidId(attemptId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+    }
+
+    match /liveSessions/{sessionId} {
+      allow get: if isValidId(sessionId) && (isAdmin() || (isSignedIn() && request.auth.uid == sessionId));
+      allow list: if isAdmin();
+      allow create: if isValidId(sessionId)
+        && isVerifiedUser()
+        && request.auth.uid == sessionId
+        && isValidLiveSession(incoming(), sessionId)
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(sessionId)
+        && isValidLiveSession(incoming(), sessionId)
+        && isVerifiedUser()
+        && (request.auth.uid == sessionId || isAdmin())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'studentName', 'className', 'packetId', 'packetTitle',
+          'subject', 'mode', 'status', 'currentQuestionNumber',
+          'answeredCount', 'flaggedCount', 'totalQuestions',
+          'secondsLeft', 'elapsedSeconds', 'examStartedAtMs', 'updatedAt'
+        ]);
+      allow delete: if isValidId(sessionId) && (isAdmin() || (isSignedIn() && request.auth.uid == sessionId));
+    }
+  }
+}

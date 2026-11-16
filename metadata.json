@@ -1,0 +1,8 @@
+{
+  "name": "Remix PintarTKA SD — Latihan CAT Ujian SD",
+  "description": "Aplikasi CAT TKA SD interaktif untuk siswa sekolah dasar dengan penilaian otomatis, pembahasan lengkap, mode ujian berwaktu, impor soal PDF/Word, serta dukungan mode offline.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
