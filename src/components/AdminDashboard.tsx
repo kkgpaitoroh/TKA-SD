@@ -47,6 +47,7 @@ import {
   upsertAdminProfile,
   upsertUserProfile,
 } from '../lib/firestoreService';
+import { isSuperAdminEmail } from '../lib/firebase';
 import {
   formatCorrectAnswerLabel,
   getEffectiveCorrectBooleans,
@@ -178,6 +179,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [newAdminUid, setNewAdminUid] = useState('');
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminName, setNewAdminName] = useState('');
+  const [removingAdminUid, setRemovingAdminUid] = useState<string | null>(null);
+  const isSuperAdmin = isSuperAdminEmail(userEmail);
 
   // Live Monitor state
   const [liveSessions, setLiveSessions] = useState<LiveSessionRecord[]>([]);
@@ -636,9 +639,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAdminUid.trim() || !newAdminEmail.trim() || !newAdminName.trim()) return;
+    const cleanUid = newAdminUid.trim();
+    const cleanEmail = newAdminEmail.trim();
+    const cleanName = newAdminName.trim();
+    if (!cleanUid || !cleanEmail || !cleanName) return;
+    if (!/^[a-zA-Z0-9_-]{4,128}$/.test(cleanUid)) {
+      onNotify(
+        'Format Firebase UID tidak valid. Pastikan hanya menyalin huruf, angka, "_" atau "-" tanpa spasi.',
+        'error'
+      );
+      return;
+    }
     try {
-      await addAdminRecord(newAdminUid, newAdminEmail, newAdminName);
+      await addAdminRecord(cleanUid, cleanEmail, cleanName);
       setNewAdminUid('');
       setNewAdminEmail('');
       setNewAdminName('');
@@ -646,6 +659,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       onNotify('Guru admin baru berhasil ditambahkan.', 'success');
     } catch {
       onNotify('Gagal menambahkan guru admin. Periksa format UID.', 'error');
+    }
+  };
+
+  const handleRemoveAdmin = async (adm: AdminRecord) => {
+    if (!isSuperAdmin) {
+      onNotify(
+        'Hanya admin utama (kkgptoroh@gmail.com) yang memiliki wewenang mencabut akses admin.',
+        'error'
+      );
+      return;
+    }
+    if (adm.uid === uid || isSuperAdminEmail(adm.email)) {
+      onNotify('Akun admin utama tidak dapat dicabut aksesnya.', 'error');
+      return;
+    }
+    setRemovingAdminUid(adm.uid);
+    try {
+      await removeAdminRecord(adm.uid);
+      setAdmins((prev) => prev.filter((item) => item.uid !== adm.uid));
+      await loadAdminsList();
+      onNotify(`Akses admin "${adm.name}" berhasil dicabut.`, 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      if (msg.toLowerCase().includes('permission')) {
+        onNotify(
+          'Izin ditolak oleh Firestore. Pastikan email akun Anda terverifikasi dan terdaftar sebagai admin.',
+          'error'
+        );
+      } else {
+        onNotify('Gagal mencabut akses guru admin. Periksa koneksi internet Anda.', 'error');
+      }
+    } finally {
+      setRemovingAdminUid(null);
     }
   };
 
@@ -2382,6 +2428,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-slate-800">
                 {uid}
               </code>
+              {!isSuperAdmin && (
+                <span className="mt-1 block text-[11px] text-slate-500">
+                  Catatan: Wewenang mencabut akses admin hanya dimiliki oleh admin utama (kkgptoroh@gmail.com).
+                </span>
+              )}
             </p>
 
             <form onSubmit={handleAddAdmin} className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
@@ -2419,34 +2470,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             {admins.length > 0 && (
               <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200">
-                {admins.map((adm) => (
-                  <div
-                    key={adm.uid}
-                    className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Users className="h-4 w-4 text-slate-400" aria-hidden="true" />
-                      <div>
-                        <p className="font-semibold text-slate-900">{adm.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {adm.email} · {adm.uid}
-                        </p>
+                {admins.map((adm) => {
+                  const isTargetSuperAdmin = isSuperAdminEmail(adm.email);
+                  const canRevoke = isSuperAdmin && adm.uid !== uid && !isTargetSuperAdmin;
+                  return (
+                    <div
+                      key={adm.uid}
+                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Users className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900">{adm.name}</p>
+                          <p className="truncate text-xs text-slate-500">
+                            {adm.email} · {adm.uid}
+                          </p>
+                        </div>
                       </div>
+                      {adm.uid === uid ? (
+                        <span className="shrink-0 rounded-md bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                          Akun Anda Saat Ini
+                        </span>
+                      ) : isTargetSuperAdmin ? (
+                        <span className="shrink-0 rounded-md bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                          Admin Utama
+                        </span>
+                      ) : canRevoke ? (
+                        <button
+                          type="button"
+                          disabled={removingAdminUid === adm.uid}
+                          onClick={() => handleRemoveAdmin(adm)}
+                          className="shrink-0 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          {removingAdminUid === adm.uid ? 'Mencabut...' : 'Cabut Akses'}
+                        </button>
+                      ) : (
+                        <span className="shrink-0 rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                          Guru Admin
+                        </span>
+                      )}
                     </div>
-                    {adm.uid !== uid && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await removeAdminRecord(adm.uid);
-                          loadAdminsList();
-                        }}
-                        className="text-xs font-semibold text-rose-600 hover:underline"
-                      >
-                        Cabut Akses
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
