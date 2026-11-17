@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  getDocsFromServer,
   onSnapshot,
   orderBy,
   query,
@@ -620,7 +621,13 @@ export async function seedStarterPacketsToCloud(uid: string): Promise<number> {
 export async function fetchAdmins(): Promise<AdminRecord[]> {
   const path = 'admins';
   try {
-    const snap = await getDocs(collection(db, path));
+    const colRef = collection(db, path);
+    let snap;
+    try {
+      snap = await getDocsFromServer(colRef);
+    } catch {
+      snap = await getDocs(colRef);
+    }
     return snap.docs.map((d) => {
       const data = d.data();
       const updatedTs = data.updatedAt as { toMillis?: () => number } | undefined;

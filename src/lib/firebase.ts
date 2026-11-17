@@ -15,11 +15,19 @@ export const BOOTSTRAPPED_ADMIN_EMAIL = 'sukronmakmun91@guru.sd.belajar.id';
 export const BOOTSTRAPPED_ADMIN_EMAILS = [
   'sukronmakmun91@guru.sd.belajar.id',
   'kkgpaitoroh@gmail.com',
+  'kkgptoroh@gmail.com',
 ];
+
+export const SUPER_ADMIN_EMAILS = ['kkgptoroh@gmail.com'];
 
 export function isBootstrappedAdminEmail(email?: string | null): boolean {
   if (!email) return false;
-  return BOOTSTRAPPED_ADMIN_EMAILS.includes(email.toLowerCase());
+  return BOOTSTRAPPED_ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
+export function isSuperAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return SUPER_ADMIN_EMAILS.includes(email.trim().toLowerCase());
 }
 
 const app = initializeApp(firebaseConfig);
